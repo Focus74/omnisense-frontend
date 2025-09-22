@@ -1,26 +1,27 @@
-﻿import { useEffect, useState } from 'react';
-import axios from 'axios';
+﻿// src/pages/Home.jsx
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import WeatherBadge from '../components/WeatherBadge';
 import DevicesMap from '../components/DevicesMap';
 import { socket } from '../lib/socket';
-
-const API = import.meta.env.VITE_API_BASE || 'http://localhost:3000';
+import { api } from '../lib/api'; // ⬅️ ใช้ instance รวม (same-origin)
 
 export default function Home() {
   const [health, setHealth] = useState(null);
   const [devices, setDevices] = useState([]);
 
   useEffect(() => {
-    axios.get(`${API}/api/health`)
+    // ✅ เรียกผ่าน /api/health (ให้ nginx ส่งต่อไป /health)
+    api.get('/api/health')
       .then(r => setHealth(!!r.data?.ok))
       .catch(() => setHealth(false));
 
-    axios.get(`${API}/api/devices`)
+    // รายการอุปกรณ์
+    api.get('/api/devices')
       .then(r => setDevices(r.data || []))
       .catch(() => setDevices([]));
 
-    // realtime: อัปเดตรายการอุปกรณ์ทันทีเมื่อ backend ส่ง device:update
+    // realtime: อัปเดตเมื่อ backend ส่ง device:update
     const onUpdate = (d) => {
       setDevices(prev => {
         const i = prev.findIndex(x => x.id === d.id);
@@ -43,7 +44,9 @@ export default function Home() {
       <div className="rounded border p-3 bg-white">
         <div className="flex items-center justify-between">
           <h2 className="font-semibold mb-2">อุปกรณ์ทั้งหมด</h2>
-          <Link to="/map" className="text-blue-600 hover:underline text-sm">ดูแผนที่ทั้งหมด</Link>
+          <Link to="/map" className="text-blue-600 hover:underline text-sm">
+            ดูแผนที่ทั้งหมด
+          </Link>
         </div>
 
         <ul className="space-y-3">
@@ -61,50 +64,24 @@ export default function Home() {
                 <div className="text-sm text-gray-600">
                   id: {d.id} • lat: {d.lat} • lng: {d.lng}
                 </div>
-                {/* สรุปฝน 24 ชม. ต่ออุปกรณ์ (ไม่รวบภาพรวม) */}
-                <div className="text-xs text-gray-500 mt-0.5">
-                  <SmallRain24h id={d.id} />
-                </div>
-
-                {/* ปุ่มเข้าไปหน้ารายอุปกรณ์ชัด ๆ */}
-                <div className="mt-1">
-                  <Link
-                    to={`/devices/${d.id}`}
-                    className="inline-flex items-center text-sm px-3 py-1.5 rounded border hover:bg-gray-50"
-                  >
-                    ดูข้อมูลอุปกรณ์
-                  </Link>
-                </div>
               </div>
 
-              {/* ป้ายสภาพอากาศสดของพิกัดอุปกรณ์ */}
-              <div className="self-start md:self-auto">
+              <div className="text-right">
                 <WeatherBadge lat={d.lat} lng={d.lng} />
               </div>
             </li>
           ))}
-          {devices.length === 0 && <li className="text-gray-500">ไม่มีอุปกรณ์</li>}
-        </ul>
 
-        {/* แผนที่รวมหมุดอุปกรณ์ทั้งหมด */}
-        <div className="mt-4">
-          <DevicesMap devices={devices} />
-        </div>
+          {devices.length === 0 && (
+            <li className="text-gray-500">ยังไม่มีอุปกรณ์</li>
+          )}
+        </ul>
+      </div>
+
+      <div className="rounded border p-3 bg-white">
+        <h2 className="font-semibold mb-2">แผนที่</h2>
+        <DevicesMap devices={devices} />
       </div>
     </div>
   );
-}
-
-// คอมโพเนนต์เล็ก ๆ ดึง "ฝนรวม 24 ชม." ต่อท้ายชื่ออุปกรณ์ (ยังคงต่ออุปกรณ์ ไม่ใช่รวมทุกอุปกรณ์)
-function SmallRain24h({ id }) {
-  const [sum, setSum] = useState(null);
-  useEffect(() => {
-    axios.get(`${API}/api/devices/${id}/rain`, { params: { hours: 24 } })
-      .then(r => {
-        const total = (r.data || []).reduce((s, x) => s + Number(x.rainfall_mm || 0), 0);
-        setSum(total);
-      })
-      .catch(() => setSum(null));
-  }, [id]);
-  return sum === null ? 'ฝน 24ชม: …' : `ฝน 24ชม: ${sum.toFixed(1)} mm`;
 }

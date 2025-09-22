@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { socket } from "../lib/socket";
 import RainChart from "./RainChart";
-const API = import.meta.env.VITE_API_BASE || "http://localhost:3000";
+const API = (import.meta.env.VITE_API_BASE ?? "");
 
 export default function RainSection({ deviceId }) {
   const [hours, setHours] = useState(24);
